@@ -1,0 +1,361 @@
+#include <iostream>
+#include <iomanip>
+#include <cstdlib>
+#include <ctime>
+#ifdef _WIN32
+#include <windows.h>  // For Windows
+#else
+#include <unistd.h>   // For Unix/Linux
+#endif
+using namespace std;
+
+const int bsize = 3;
+char board[bsize][bsize];
+int row = 0, col = 0;
+char Pmark = 'X';
+char Cmark = 'O';
+int choice;
+
+void Boardinitialize() 
+{
+    for (int i = 0; i < bsize; i++) 
+    {
+        for (int j = 0; j < bsize; j++)
+        {
+            board[i][j] = ' ';
+        }
+    }
+}
+
+void Boarddisplay() 
+{
+   // cout << endl;
+
+
+    for (int i = 0; i < bsize; i++) {
+        cout << " " << " ";
+        for (int j = 0; j < bsize; j++) {
+            if (board[i][j] == Cmark) {
+                // Change color to red for Cmark ('O')
+#ifdef _WIN32
+                SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_RED);
+#else
+                cout << "\033[1;31m";  // ANSI escape code for red color
+#endif
+            }
+            cout << board[i][j];
+            // Reset color back to normal
+#ifdef _WIN32
+            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+#else
+            cout << "\033[0m";  // ANSI escape code for resetting color
+#endif
+
+            if (j < bsize - 1) cout << " | ";
+        }
+        cout << endl;
+        if (i < bsize - 1) cout << " ---|---|---\n";
+    }
+}
+
+//void compinput() {
+//    int compRow, compCol;
+//    srand(time(0));
+//    do {
+//        compRow = rand() % bsize;
+//        compCol = rand() % bsize;
+//    } while (board[compRow][compCol] != ' ');
+//    board[compRow][compCol] = Cmark;
+//}
+
+bool win(char mark) {
+    int i = 0;
+    //rows and columns
+    for (; i < bsize; ) 
+    {
+        if ((board[i][0] == mark && board[i][1] == mark && board[i][2] == mark) || (board[0][i] == mark && board[1][i] == mark && board[2][i] == mark)) 
+        {
+            return true;
+        }
+        i++;
+    }
+    //diagonals
+    if ((board[0][0] == mark && board[1][1] == mark && board[2][2] == mark) || (board[0][2] == mark && board[1][1] == mark && board[2][0] == mark)) 
+    {
+        return true;
+    }
+    return false;
+}
+
+bool draw()
+{
+    for (int i = 0; i < bsize; )
+    {
+        for (int j = 0; j < bsize; j++)
+        {
+            if (board[i][j] == ' ')
+            {
+                return false;
+            }
+        }
+        i++;
+    }
+    return true;
+}
+
+int evaluateBoard() 
+{
+    if (win(Cmark))
+    {
+        return 1;
+    }
+    else if (win(Pmark)) 
+    {
+        return -1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+int minimax(bool isMax) {
+    int fscore = evaluateBoard();
+
+    if (fscore == 1 || fscore == -1) 
+    {
+        return fscore;
+    }
+    if (draw())
+    {
+        return 0;
+    }
+
+    if (!(isMax))
+    {
+        int best = 1000;
+        for (int i = 0; i < bsize;)
+        {
+            for (int j = 0; j < bsize; )
+            {
+                if (board[i][j] == ' ') 
+                {
+                    board[i][j] = Pmark;
+                    int val = minimax(true);
+                    best = (val < best) ? val : best;
+                    board[i][j] = ' ';
+                }
+                j++;
+            }
+            i++;
+        }
+        return best;
+    }
+    else 
+    {
+        int best = -1000;
+        for (int i = 0; i < bsize;)
+        {
+            for (int j = 0; j < bsize; )
+            {
+                if (board[i][j] == ' ')
+                {
+                    board[i][j] = Cmark;
+                    int val = minimax(false);
+                    best = (val > best) ? val : best;
+                    board[i][j] = ' ';
+                }
+                j++;
+            }
+            i++;
+        }
+        return best;
+    }
+}
+
+void compinput() 
+{
+    int bestVal = -1000;
+    int bestRow = -1;
+    int bestCol = -1;
+
+    for (int i = 0; i < bsize; i++) 
+    {
+        for (int j = 0; j < bsize; j++)
+        {
+            if (board[i][j] == ' ')
+            {
+                board[i][j] = Cmark;
+                int moveVal = minimax(false);
+                board[i][j] = ' ';
+
+                if (!(moveVal < bestVal))
+                {
+                    bestRow = i;
+                    bestCol = j;
+                    bestVal = moveVal;
+                }
+            }
+        }
+    }
+
+    board[bestRow][bestCol] = Cmark;  
+}
+
+void clearScreen() {
+#ifdef _WIN32
+    system("cls");
+#else
+    system("clear");
+#endif
+}
+
+void printMainMenu() {
+    clearScreen();
+
+#ifdef _WIN32
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+    int width = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+#else
+    struct winsize size;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
+    int width = size.ws_col;
+#endif
+
+    cout << string(width, '=') << endl;
+
+    cout << "                                   ||||||||||||||||||||||||||||||||||||||||" << endl;
+    cout << "                                   ||                                    ||" << endl;
+    cout << "                                   ||     ------ ____     _____          ||" << endl;
+    cout << "                                   ||       |     |      |               ||" << endl;
+    cout << "                                   ||       |     |      |               ||" << endl;
+    cout << "                                   ||       |     |      |               ||" << endl;
+    cout << "                                   ||       |     |      |               ||" << endl;
+    cout << "                                   ||       |    ----    |_____          ||" << endl;
+    cout << "                                   ||                                    ||" << endl;
+   // cout << "||                                    ||" << endl;
+   
+
+    cout << "                                   ||      ------          _____         ||" << endl;
+    cout << "                                   ||        |     /\\     |              ||" << endl;
+    cout << "                                   ||        |    /  \\    |              ||" << endl;
+    cout << "                                   ||        |   /    \\   |              ||"  << endl; 
+    cout << "                                   ||        |  /------\\  |              ||" << endl;
+    cout << "                                   ||        | /        \\ |_____         ||" << endl;
+    cout << "                                   ||                                    ||" << endl;
+  //  cout << "||                                    ||" << endl;
+
+    cout << "                                   ||      ------  ______     _____      ||" << endl;
+    cout << "                                   ||        |     |     |   |           ||" << endl;
+    cout << "                                   ||        |     |     |   |           ||" << endl;
+    cout << "                                   ||        |     |     |   |-----      ||" << endl;
+    cout << "                                   ||        |     |     |   |           ||" << endl;
+    cout << "                                   ||        |     |_____|   |_____      ||" << endl;
+    
+    cout << string(width, '=') << endl;
+    cout << "                                   ||||||||||||||||||||||||||||||||||||||||" << endl;
+    cout << "                                   ||                                    ||" << endl;
+    cout << "                                   ||   1. Play Game                     ||" << endl;
+    cout << "                                   ||   2. Exit                          ||" << endl;
+    cout << "                                   ||                                    ||" << endl;
+    cout << "                                   ||||||||||||||||||||||||||||||||||||||||" << endl;
+    cout << string(width, '=') << endl;
+    cout << "Enter your choice: " << endl;
+    
+}
+
+void playGame() {
+    clearScreen();
+    string name;
+    bool check = true;
+    cout << "Enter the Player Name: ";
+    cin >> name;
+    cout << name << ", your mark is X" << endl;
+    cout << endl << endl;
+
+    Boardinitialize();
+
+    while (check)
+    {
+        Boarddisplay();
+        cout << "Enter row and column to mark your place: ";
+        cin >> row >> col;
+
+        if (row < 0 || row >= bsize || col < 0 || col >= bsize || board[row][col] != ' ')
+        {
+            cout << "Invalid move. Try again." << endl;
+            continue;
+        }
+
+        board[row][col] = Pmark;
+
+        if (win(Pmark)) 
+        {
+            Boarddisplay();
+            cout << "Congratulations " << name << ", you win!" << endl;
+            check = false;
+        }
+        else if (!draw())
+        {
+          //  cout << "computer making its turn ... " << endl;
+            compinput();
+          //  cout << endl;
+          //  Boarddisplay();
+
+            if (win(Cmark)) {
+                Boarddisplay();
+                cout << "Computer wins!" << endl;
+                check = false;
+            }
+        }
+
+        if (draw() && check)
+        {
+            Boarddisplay();
+            cout << "It's a draw!" << endl;
+            check = false;
+        }
+    }
+    char ch;
+    cout << endl << endl;
+    cout << "do you want to play again? (Y/y) (N/n)" << endl;
+    cin >> ch;
+    if (ch == 'Y' || ch == 'y')
+    {
+        playGame();
+    }
+    else
+    {
+        cout << "...Returning to Main Menu" << endl;
+    }
+
+         
+}
+
+
+
+
+int main() {
+
+
+    while (true) {
+        printMainMenu();
+        cin >> choice;
+
+        switch (choice) {
+        case 1:
+            playGame();
+            break;
+        case 2:
+            cout << "Exiting..." << endl;
+            return 0;
+        default:
+            cout << "Invalid choice! Please try again." << endl;
+            break;
+        }
+    }
+
+    return 0;
+}
+
