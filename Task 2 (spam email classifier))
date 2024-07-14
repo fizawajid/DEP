@@ -1,0 +1,229 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <cmath>
+
+using namespace std;
+
+class NaiveBayesClassifier {
+private:
+    vector<string> vocabulary;
+    int* spam_word_counts;
+    int* ham_word_counts;
+    int spam_count, ham_count, total_emails;
+
+    void preprocess(string& word) const
+    {
+        for (char& c : word)
+        {
+            if (c >= 'A' && c <= 'Z')
+            {  //if uppercase then converting to lowercase
+                c = c - 'A' + 'a';
+            }
+            else if (c >= 'a' && c <= 'z')
+            {  //do nothing if already lowercase
+            }
+            else if (ispunct(c))
+            {  // Remove punctuation
+                c = ' ';
+            }
+        }
+    }
+
+    int get_word_index(const string& word) const
+    {
+        for (size_t i = 0; i < vocabulary.size(); ++i)
+        {
+            if (vocabulary[i] == word)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    int get_total_word_count(const string& label) const
+    {
+        int total = 0;
+        if (label == "spam")
+        {
+            for (size_t i = 0; i < vocabulary.size(); ++i)
+            {
+                total += spam_word_counts[i];
+            }
+        }
+        else
+        {
+            for (size_t i = 0; i < vocabulary.size(); ++i)
+            {
+                total += ham_word_counts[i];
+            }
+        }
+        return total;
+    }
+
+    bool contains_personal_info_request(const string& email) const
+    {
+        vector<string> sensitive_words = { "password", "credit card", "ssn", "bank account","$","account"};
+        for (const auto& word : sensitive_words)
+        {
+            if (email.find(word) != string::npos)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+public:
+    NaiveBayesClassifier(const vector<string>& vocabulary) : vocabulary(vocabulary), spam_count(0), ham_count(0), total_emails(0)
+    {
+        spam_word_counts = new int[vocabulary.size()]();
+        ham_word_counts = new int[vocabulary.size()]();
+    }
+
+    ~NaiveBayesClassifier()
+    {
+        delete[] spam_word_counts;
+        delete[] ham_word_counts;
+    }
+
+    void train(const vector<pair<string, string>>& training_data)
+    {
+        for (const auto& email : training_data)
+        {
+            if (email.second == "spam")
+            {
+                spam_count++;
+            }
+            else
+            {
+                ham_count++;
+            }
+            total_emails++;
+
+            stringstream ss(email.first);
+            string word;
+            while (ss >> word)
+            {
+                preprocess(word);
+
+                int index = get_word_index(word);
+                if (index != -1)
+                {
+                    if (email.second == "spam")
+                    {
+                        spam_word_counts[index]++;
+                    }
+                    else
+                    {
+                        ham_word_counts[index]++;
+                    }
+                }
+               
+            }
+        }
+    }
+
+    string classify(const string& email) const
+    {
+        double spam_prob = log(spam_count / static_cast<double>(total_emails));
+        double ham_prob = log(ham_count / static_cast<double>(total_emails));
+
+        stringstream ss(email);
+        string word;
+        while (ss >> word)
+        {
+            preprocess(word);
+            int index = get_word_index(word);
+            if (index != -1)
+            {
+                spam_prob += log((spam_word_counts[index] + 1.0) / (get_total_word_count("spam") + vocabulary.size()));
+                ham_prob += log((ham_word_counts[index] + 1.0) / (get_total_word_count("ham") + vocabulary.size()));
+            }
+        }
+
+        if (contains_personal_info_request(email)) {
+            spam_prob += log(2.0); // Increase spam probability
+        }
+        //if (is_poorly_formatted(email)) {
+        //    spam_prob += log(1.5); // Increase spam probability
+        //}
+        //if (has_unusual_formatting(email)) {
+        //    spam_prob += log(1.5); // Increase spam probability
+        //}
+
+        return spam_prob > ham_prob ? "\033[1;31mspam\033[0m" : "\033[1;32mham\033[0m";
+    }
+
+};
+
+int main() {
+    // Defining the vocabulary and training data
+    vector<string> vocabulary = { "free", "money", "call", "today", "limited", "offer", "meet", "park", "congratulations", "prize", "won"};
+    vector<pair<string, string>> training_data = {
+        {"Free money now", "spam"},
+        {"Call me today", "ham"},
+        {"Limited offer", "spam"},
+         {"Meet me at the park", "ham"}
+    };
+
+    // Initializing and train the classifier
+    NaiveBayesClassifier classifier(vocabulary);
+    classifier.train(training_data);
+
+    // Test emails
+    vector<string> test_emails = {
+        "free offer today",
+        "call me for free money",
+        "park limited offer", 
+       "meet today at the park",
+       
+       "urgent money call",
+    
+        "hello, this is not spam",
+        "are we still on for lunch today?",
+        "happy birthday!",
+        "hope you are doing well",
+        "let's catch up soon",
+        "thank you for your help",
+        "could you send me the report by end of day?",
+        "looking forward to our meeting next week",
+        "did you get my last email?",
+
+            "urgent: respond immediately to secure your account",
+    "special promotion: buy one get one free",
+
+        "can we reschedule our call?",
+        "your order has been shipped",
+        "here are the meeting minutes",
+        "can you confirm the meeting time?",
+        "I will be out of office next week",
+
+     "Click here to update your bank account",
+     "Urgent: Your password has been compromised!",
+
+    "limited time offer - claim your prize now!",
+    "update your bank account information here",
+    "click here to receive your free gift",
+    "exclusive offer: double your money today",
+    "important security notice: your password needs updating",
+    "your account has been credited with $1,000,000!",
+    "free trial offer - sign up today!",
+    "your credit card has been charged - click for details",
+
+
+ 
+    };
+
+    // Classifying emails
+    cout << "Results:" << endl;
+    for (const auto& email : test_emails) {
+        string result = classifier.classify(email);
+        cout << "Email: \"" << email << "\" is classified as: " << result << endl;
+    }
+
+    return 0;
+}
