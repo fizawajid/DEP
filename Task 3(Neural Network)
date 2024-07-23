@@ -1,0 +1,118 @@
+import tensorflow as tf
+import numpy as np
+
+# Loading the MNIST dataset
+(x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+
+# Normalizing and reshaping the datasets
+x_train = x_train.reshape(x_train.shape[0], -1).T / 255.
+x_test = x_test.reshape(x_test.shape[0], -1).T / 255.
+y_train = y_train.T
+y_test = y_test.T
+
+# Spliting training data into training and development sets
+np.random.seed(0)  # For reproducibility
+shuffled_indices = np.random.permutation(x_train.shape[1])
+x_train, y_train = x_train[:, shuffled_indices], y_train[shuffled_indices]
+
+#1000 samples for the development set
+x_dev = x_train[:, :1000]
+y_dev = y_train[:1000]
+
+# Remaining samples will be for the training set
+x_train = x_train[:, 1000:]
+y_train = y_train[1000:]
+
+
+def init_params():
+    np.random.seed(0)  # Ensures reproducibility
+    Weightlayer1 = np.random.randn(10, 784) * 0.01
+    biaseslayer1 = np.zeros((10, 1))
+    Weightlayer2 = np.random.randn(10, 10) * 0.01
+    biaseslayer2 = np.zeros((10, 1))
+    return Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2
+
+def ReLU(Z):
+    return (Z > 0) * Z
+
+def softmax(Z):
+    A = np.exp(Z) / np.sum(np.exp(Z), axis=0)
+    return A
+
+def forward_prop(Weight1, biases1, Weight2, biases2, X):
+    Z1 = np.matmul(Weight1, X) + biases1  #matmul perfomrs fot product between w1 and x 
+    Active_layer1 = ReLU(Z1)
+    Z2 = np.matmul(Weight2, Active_layer1) + biases2
+    Active_layer2 = softmax(Z2)
+    return Z1, Active_layer1, Z2, Active_layer2
+
+def ReLU_deriv(Z):
+      return np.where(Z > 0, 1, 0)
+
+def one_hot(Y):
+    num_classes = np.max(Y) + 1
+    one_hot_Y = np.eye(num_classes)[Y].T
+    return one_hot_Y
+
+def backward_prop(Z1, Active_layer1, Z2, Active_layer2, Weight1, Weight2, X, Y):
+    one_hot_Y = one_hot(Y)
+    dZ2 = Active_layer2 - one_hot_Y
+   gradient_weights_layer2 = 1 / X.shape[1] * dZ2.dot(Active_layer1.T)
+    db2 = 1 / X.shape[1] * np.sum(dZ2, axis=1, keepdims=True)
+    dZ1 = W2.T.dot(dZ2) * ReLU_deriv(Z1)
+    gradient_weights_layer1 = 1 / X.shape[1] * dZ1.dot(X.T)
+    db1 = 1 / X.shape[1] * np.sum(dZ1, axis=1, keepdims=True)
+    return gradient_weights_layer1, db1, gradient_weights_layer2, db2
+
+def update_params(Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2, gradient_weights_layer1, db1, gradient_weights_layer2, db2, alpha):
+    Weightlayer1 -= alpha * gradient_weights_layer1
+    biaseslayer1 -= alpha * db1    
+    Weightlayer2 -= alpha * gradient_weights_layer2  
+    biaseslayer2 -= alpha * db2    
+    return W1, b1, W2, b2
+
+def get_predictions(Active_layer2):
+    return np.argmax(Active_layer2, axis=0)
+
+def isaccurate(predictions, Y):
+    return np.sum(predictions == Y) / Y.size
+
+def gradient_descent(X, Y, alpha, iterations):
+    Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2 = init_params()
+    for i in range(iterations):
+        Z1, Active_layer1, Z2, Active_layer2 = forward_prop(Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2, X)
+        gradient_weights_layer1, db1, gradient_weights_layer2, db2 = backward_prop(Z1, Active_layer1, Z2, Active_layer2, Weightlayer1, Weightlayer2, X, Y)
+        Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2 = update_params(Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2, gradient_weights_layer1, db1, gradient_weights_layer2, db2, alpha)
+        if i % 10 == 0:
+            print(f"Iteration: {i}")
+            predictions = get_predictions(Active_layer2)
+            print(f"Accuracy: {isaccurate(predictions, Y)}")
+    return Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2
+
+# Training the model
+Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2 = gradient_descent(x_train, y_train, 0.10, 500)
+
+def predict(X, Weight1, b1, Weight12, b2):
+    _, _, _, Active_layer2 = forward_prop(Weigth11, b1, Weight12, b2, X)
+    return np.argmax(Active_layer2, axis=0)
+
+def predict_test(index, Weight1, b1, Weight2, b2):
+    current_image = x_train[:, index, None]
+    prediction = predict(current_image, Weight1, b1, Weight2, b2)
+    label = y_train[index]
+    print(f"Prediction: {prediction}")
+    print(f"Label: {label}")
+
+# Test predictions on a few examples
+predict_test(0, Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2)
+predict_test(1, Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2)
+predict_test(2, Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2)
+predict_test(3, Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2)
+
+# Evaluating accuracy on the development set
+dev_predictions = predict(x_dev, Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2)
+print(f"Development Set Accuracy: {isaccurate(dev_predictions, y_dev)}")
+
+# Evaluating accuracy on the test set
+predict_test = predict(x_test, Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2)
+print(f"Test Set Accuracy: {isaccurate(predict_test, y_test)}")
