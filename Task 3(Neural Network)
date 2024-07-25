@@ -23,14 +23,13 @@ y_dev = y_train[:1000]
 x_train = x_train[:, 1000:]
 y_train = y_train[1000:]
 
-
 def init_params():
     np.random.seed(0)  # Ensures reproducibility
-    Weightlayer1 = np.random.randn(10, 784) * 0.01
-    biaseslayer1 = np.zeros((10, 1))
-    Weightlayer2 = np.random.randn(10, 10) * 0.01
-    biaseslayer2 = np.zeros((10, 1))
-    return Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2
+    weights_layer1 = np.random.randn(10, 784) * 0.01
+    biases_layer1 = np.zeros((10, 1))
+    weights_layer2 = np.random.randn(10, 10) * 0.01
+    biases_layer2 = np.zeros((10, 1))
+    return weights_layer1, biases_layer1, weights_layer2, biases_layer2
 
 def ReLU(Z):
     return (Z > 0) * Z
@@ -39,80 +38,80 @@ def softmax(Z):
     A = np.exp(Z) / np.sum(np.exp(Z), axis=0)
     return A
 
-def forward_prop(Weight1, biases1, Weight2, biases2, X):
-    Z1 = np.matmul(Weight1, X) + biases1  #matmul perfomrs fot product between w1 and x 
-    Active_layer1 = ReLU(Z1)
-    Z2 = np.matmul(Weight2, Active_layer1) + biases2
-    Active_layer2 = softmax(Z2)
-    return Z1, Active_layer1, Z2, Active_layer2
+def forward_prop(weights_layer1, biases_layer1, weights_layer2, biases_layer2, X):
+    Z1 = np.matmul(weights_layer1, X) + biases_layer1  # matmul performs dot product between weights_layer1 and X 
+    activations_layer1 = ReLU(Z1)
+    Z2 = np.matmul(weights_layer2, activations_layer1) + biases_layer2
+    activations_layer2 = softmax(Z2)
+    return Z1, activations_layer1, Z2, activations_layer2
 
 def ReLU_deriv(Z):
-      return np.where(Z > 0, 1, 0)
+    return np.where(Z > 0, 1, 0)
 
 def one_hot(Y):
     num_classes = np.max(Y) + 1
     one_hot_Y = np.eye(num_classes)[Y].T
     return one_hot_Y
 
-def backward_prop(Z1, Active_layer1, Z2, Active_layer2, Weight1, Weight2, X, Y):
+def backward_prop(Z1, activations_layer1, Z2, activations_layer2, weights_layer1, weights_layer2, X, Y):
     one_hot_Y = one_hot(Y)
-    dZ2 = Active_layer2 - one_hot_Y
-   gradient_weights_layer2 = 1 / X.shape[1] * dZ2.dot(Active_layer1.T)
+    dZ2 = activations_layer2 - one_hot_Y
+    gradient_weights_layer2 = 1 / X.shape[1] * dZ2.dot(activations_layer1.T)
     db2 = 1 / X.shape[1] * np.sum(dZ2, axis=1, keepdims=True)
-    dZ1 = W2.T.dot(dZ2) * ReLU_deriv(Z1)
+    dZ1 = weights_layer2.T.dot(dZ2) * ReLU_deriv(Z1)
     gradient_weights_layer1 = 1 / X.shape[1] * dZ1.dot(X.T)
     db1 = 1 / X.shape[1] * np.sum(dZ1, axis=1, keepdims=True)
     return gradient_weights_layer1, db1, gradient_weights_layer2, db2
 
-def update_params(Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2, gradient_weights_layer1, db1, gradient_weights_layer2, db2, alpha):
-    Weightlayer1 -= alpha * gradient_weights_layer1
-    biaseslayer1 -= alpha * db1    
-    Weightlayer2 -= alpha * gradient_weights_layer2  
-    biaseslayer2 -= alpha * db2    
-    return W1, b1, W2, b2
+def update_params(weights_layer1, biases_layer1, weights_layer2, biases_layer2, gradient_weights_layer1, db1, gradient_weights_layer2, db2, alpha):
+    weights_layer1 -= alpha * gradient_weights_layer1
+    biases_layer1 -= alpha * db1    
+    weights_layer2 -= alpha * gradient_weights_layer2  
+    biases_layer2 -= alpha * db2    
+    return weights_layer1, biases_layer1, weights_layer2, biases_layer2
 
-def get_predictions(Active_layer2):
-    return np.argmax(Active_layer2, axis=0)
+def get_predictions(activations_layer2):
+    return np.argmax(activations_layer2, axis=0)
 
-def isaccurate(predictions, Y):
+def is_accurate(predictions, Y):
     return np.sum(predictions == Y) / Y.size
 
 def gradient_descent(X, Y, alpha, iterations):
-    Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2 = init_params()
+    weights_layer1, biases_layer1, weights_layer2, biases_layer2 = init_params()
     for i in range(iterations):
-        Z1, Active_layer1, Z2, Active_layer2 = forward_prop(Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2, X)
-        gradient_weights_layer1, db1, gradient_weights_layer2, db2 = backward_prop(Z1, Active_layer1, Z2, Active_layer2, Weightlayer1, Weightlayer2, X, Y)
-        Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2 = update_params(Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2, gradient_weights_layer1, db1, gradient_weights_layer2, db2, alpha)
+        Z1, activations_layer1, Z2, activations_layer2 = forward_prop(weights_layer1, biases_layer1, weights_layer2, biases_layer2, X)
+        gradient_weights_layer1, db1, gradient_weights_layer2, db2 = backward_prop(Z1, activations_layer1, Z2, activations_layer2, weights_layer1, weights_layer2, X, Y)
+        weights_layer1, biases_layer1, weights_layer2, biases_layer2 = update_params(weights_layer1, biases_layer1, weights_layer2, biases_layer2, gradient_weights_layer1, db1, gradient_weights_layer2, db2, alpha)
         if i % 10 == 0:
             print(f"Iteration: {i}")
-            predictions = get_predictions(Active_layer2)
-            print(f"Accuracy: {isaccurate(predictions, Y)}")
-    return Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2
+            predictions = get_predictions(activations_layer2)
+            print(f"Accuracy: {is_accurate(predictions, Y)}")
+    return weights_layer1, biases_layer1, weights_layer2, biases_layer2
 
 # Training the model
-Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2 = gradient_descent(x_train, y_train, 0.10, 500)
+weights_layer1, biases_layer1, weights_layer2, biases_layer2 = gradient_descent(x_train, y_train, 0.10, 500)
 
-def predict(X, Weight1, b1, Weight12, b2):
-    _, _, _, Active_layer2 = forward_prop(Weigth11, b1, Weight12, b2, X)
-    return np.argmax(Active_layer2, axis=0)
+def predict(X, weights_layer1, biases_layer1, weights_layer2, biases_layer2):
+    _, _, _, activations_layer2 = forward_prop(weights_layer1, biases_layer1, weights_layer2, biases_layer2, X)
+    return np.argmax(activations_layer2, axis=0)
 
-def predict_test(index, Weight1, b1, Weight2, b2):
+def predict_test(index, weights_layer1, biases_layer1, weights_layer2, biases_layer2):
     current_image = x_train[:, index, None]
-    prediction = predict(current_image, Weight1, b1, Weight2, b2)
+    prediction = predict(current_image, weights_layer1, biases_layer1, weights_layer2, biases_layer2)
     label = y_train[index]
     print(f"Prediction: {prediction}")
     print(f"Label: {label}")
 
 # Test predictions on a few examples
-predict_test(0, Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2)
-predict_test(1, Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2)
-predict_test(2, Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2)
-predict_test(3, Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2)
+predict_test(0, weights_layer1, biases_layer1, weights_layer2, biases_layer2)
+predict_test(1, weights_layer1, biases_layer1, weights_layer2, biases_layer2)
+predict_test(2, weights_layer1, biases_layer1, weights_layer2, biases_layer2)
+predict_test(3, weights_layer1, biases_layer1, weights_layer2, biases_layer2)
 
 # Evaluating accuracy on the development set
-dev_predictions = predict(x_dev, Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2)
-print(f"Development Set Accuracy: {isaccurate(dev_predictions, y_dev)}")
+dev_predictions = predict(x_dev, weights_layer1, biases_layer1, weights_layer2, biases_layer2)
+print(f"Development Set Accuracy: {is_accurate(dev_predictions, y_dev)}")
 
 # Evaluating accuracy on the test set
-predict_test = predict(x_test, Weightlayer1, biaseslayer1, Weightlayer2, biaseslayer2)
-print(f"Test Set Accuracy: {isaccurate(predict_test, y_test)}")
+test_predictions = predict(x_test, weights_layer1, biases_layer1, weights_layer2, biases_layer2)
+print(f"Test Set Accuracy: {is_accurate(test_predictions, y_test)}")
