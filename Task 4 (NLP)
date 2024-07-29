@@ -1,0 +1,267 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <sstream>
+#include <unordered_set>
+#include <unordered_map>
+#include <cmath>
+#include <algorithm>
+using namespace std;
+
+
+std::string removeUrls(const string& text)
+{
+    string cleantext;
+    size_t pos = 0;
+    size_t found;
+
+    while ((found = text.find_first_of("hH", pos)) !=string::npos)
+    {
+        if (text.substr(found, 4) == "http" || text.substr(found, 5) == "https")
+        {
+            size_t end = text.find_first_of(" \t\n", found);
+            if (end == std::string::npos) end = text.length();
+            pos = end;
+        }
+        else if (text.substr(found, 4) == "www.")
+        {
+            size_t end = text.find_first_of(" \t\n", found);
+            if (end == std::string::npos) end = text.length();
+            pos = end;
+        }
+        else
+        {
+            cleantext += text[pos];
+            ++pos;
+        }
+    }
+
+    cleantext += text.substr(pos);
+    return cleantext;
+}
+
+   string removeHtmlTags(const std::string& text) 
+   {
+    string cleantext;
+    bool insideTag = false;
+
+    for (char c : text) 
+    {
+        if (c == '<')
+        {
+            insideTag = true;
+        }
+        else if (c == '>')
+        {
+            insideTag = false;
+        }
+        else if (!insideTag)
+        {
+            cleantext += c;
+        }
+    }
+
+    return cleantext;
+}
+
+   string cleanText(const string& text) 
+{
+    string cleanedText = text;
+
+    cleanedText = removeUrls(text);
+    cleanedText = removeHtmlTags(cleanedText);
+
+    // Remove punctuation
+    cleanedText.erase(remove_if(cleanedText.begin(), cleanedText.end(), ::ispunct), cleanedText.end());
+
+    // Remove unwanted characters (keeping only alphanumeric and space)
+    cleanedText.erase(remove_if(cleanedText.begin(), cleanedText.end(), [](char c) { return !isalnum(c) && !isspace(c); }), cleanedText.end());
+
+    return cleanedText;
+}
+
+// Function to tokenize text
+   vector<std::string> tokenize(const string& text) 
+{
+    vector<string> tokens;
+    istringstream stream(text);
+    string token;
+    while (stream >> token) 
+    {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
+
+// Function to remove stop words
+   vector<string> removeStopWords(const vector<string>& tokens)
+   {
+    unordered_set<string> stopWords = { "the", "is", "in", "and", "of", "to", "a" };
+    vector<string> filteredTokens;
+    for (const auto& token : tokens)
+    {
+        if (stopWords.find(token) == stopWords.end()) 
+        {
+            filteredTokens.push_back(token);
+        }
+    }
+    return filteredTokens;
+}
+
+// Simple Porter Stemmer implementation
+  string stemWord(const string& word) 
+{
+    if (word.length() <= 2) return word;
+    string stemmedWord = word;
+
+    // Remove past tense suffix 'ed'
+    if (stemmedWord.length() > 2 && stemmedWord.substr(stemmedWord.length() - 2) == "ed")
+    {
+        stemmedWord = stemmedWord.substr(0, stemmedWord.length() - 2);
+    }
+
+    // Remove continuous suffix 'ing'
+    if (stemmedWord.length() > 3 && stemmedWord.substr(stemmedWord.length() - 3) == "ing")
+    {
+        stemmedWord = stemmedWord.substr(0, stemmedWord.length() - 3);
+    }
+
+    return stemmedWord;
+}
+
+
+std::vector<std::string> stemTokens(const std::vector<std::string>& tokens) {
+    std::vector<std::string> stemmedTokens;
+    for (const auto& token : tokens) {
+        stemmedTokens.push_back(stemWord(token));
+    }
+    return stemmedTokens;
+}
+
+
+   vector<string> preprocessText(const string& text) 
+   {
+    string cleanedText = cleanText(text);
+    vector<string> tokens = tokenize(cleanedText);
+    vector<string> filteredTokens = removeStopWords(tokens);
+    vector<string> stemmedTokens = stemTokens(filteredTokens);
+    return stemmedTokens;
+}
+
+   unordered_map<string, int> extractFeatures(const vector<string>& tokens)
+   {
+    unordered_map<string, int> features;
+    for (const auto& token : tokens)
+    {
+        features[token]++;
+    }
+    return features;
+}
+
+
+class NaiveBayesClassifier {
+public:
+    void train(const vector<pair<string, int>>& data) 
+    {
+        for (const auto& [text, label] : data) 
+        {
+            vector<string> tokens = preprocessText(text);
+            auto features = extractFeatures(tokens);
+            for (const auto& [word, count] : features)
+            {
+                wordCounts[label][word] += count;
+                classCounts[label] += count;
+                vocab[word] = true;  // Mark the word as present in the vocabulary
+            }
+            classDocCounts[label]++;
+            totalDocs++;
+        }
+    }
+
+    pair<double, double> predict(const string& text)
+    {
+        vector<std::string> tokens = preprocessText(text);
+        auto features = extractFeatures(tokens);
+        std::unordered_map<int, double> logProbs;
+
+        for (const auto& [label, _] : classDocCounts) 
+        {
+            double logProb = std::log(classDocCounts[label]) - std::log(totalDocs);
+            for (const auto& [word, count] : features)
+            {
+                double wordProb = (wordCounts[label][word] + 1.0) / (classCounts[label] + vocab.size());
+                logProb += count * std::log(wordProb);
+            }
+            logProbs[label] = logProb;
+        }
+
+        double maxLogProb = std::max(logProbs[0], logProbs[1]);
+        double sumExpLogProbs = std::exp(logProbs[0] - maxLogProb) + std::exp(logProbs[1] - maxLogProb);
+        double prob0 = std::exp(logProbs[0] - maxLogProb) / sumExpLogProbs;
+        double prob1 = std::exp(logProbs[1] - maxLogProb) / sumExpLogProbs;
+
+        return { prob0, prob1 };
+    }
+
+private:
+    unordered_map<int, unordered_map<string, int>> wordCounts;
+    unordered_map<int, int> classCounts;
+    unordered_map<int, int> classDocCounts;
+    unordered_map<string, bool> vocab;
+    int totalDocs = 0;
+};
+
+int main() {
+    // (text, label) 1 for positive, 0 for negative
+    vector<pair<string, int>> trainingData = 
+    {
+        {"I love this product! It's amazing.", 1},
+        {"This is the worst service I have ever used.", 0},
+        {"I am very happy with my purchase.", 1},
+        {"I hate this item. It's awful.", 0},
+        {"Very disappointing, not worth the money.", 0},
+        {"This app is terrible and useless.", 0},
+        {"I am thrilled with this product.", 1},
+        {"This app is fantastic and very helpful.", 1}, 
+        {"The experience was just terrible and frustrating.", 0}
+    };
+
+    // Train the Naive Bayes classifier
+    NaiveBayesClassifier classifier;
+    classifier.train(trainingData);
+
+    
+    vector<string> reviews = 
+    {
+        "This is an excellent app, very useful.",
+        "Terrible experience, never using this again.",
+        "I am extremely satisfied with the customer service.",
+        "Not worth the money, very disappointing.",
+        "I recently purchased the XYZ Ultra Blender, and I am absolutely thrilled with my decision. From the moment I unboxed it, I could tell that this was a high-quality appliance. The sleek and modern design fits perfectly in my kitchen, and it feels sturdy and well-built",
+        "Firstly, the content was poorly written and lacked any substantial information. The so-called 'tips' were generic and outdated, offering advice like 'save more money' and 'spend less.' There was no depth or actionable guidance provided, making it clear that the author had little understanding of the topic."
+
+    };
+
+    
+    const string RESET = "\033[0m";
+    const string RED = "\033[31m";
+    const string GREEN = "\033[32m";
+
+    // Predicting sentiments
+    for (const auto& review : reviews)
+    {
+        auto [probNeg, probPos] = classifier.predict(review);
+        cout << "Review: " << review << "\n";
+        if (probPos > probNeg) 
+        {
+            std::cout << "Positive Sentiment: " << GREEN << probPos * 100 << "%" << RESET << "\n";
+        }
+        else 
+        {
+            std::cout << "Negative Sentiment: " << RED << probNeg * 100 << "%" << RESET << "\n";
+        }
+        std::cout << "\n";
+    }
+
+    return 0;
+}
